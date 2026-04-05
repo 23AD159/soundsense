@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SoundSense — AI Sound Alert System</title>
+  <meta name="description" content="Real-time AI-powered sound event detection and alert system for the deaf and hard-of-hearing community."/>
+  <link rel="stylesheet" href="/static/style.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- ── Sidebar ──────────────────────────────────────────────────────────── -->
+  <nav class="sidebar">
+    <div class="sidebar-logo">
+      <span class="logo-icon">👂</span>
+      <div>
+        <div class="logo-text">SoundSense</div>
+        <div class="logo-sub">AI Alert System</div>
+      </div>
+    </div>
+
+    <div class="nav-item active" onclick="showPage('home')" id="nav-home">
+      <span class="nav-icon">🏠</span> Dashboard
+    </div>
+    <div class="nav-item" onclick="showPage('history')" id="nav-history">
+      <span class="nav-icon">📋</span> Alert History
+    </div>
+    <div class="nav-item" onclick="showPage('custom')" id="nav-custom">
+      <span class="nav-icon">🎤</span> Add Sound
+    </div>
+    <div class="nav-item" onclick="showPage('isl')" id="nav-isl">
+      <span class="nav-icon">🤟</span> ISL Guide
+    </div>
+    <div class="nav-item" onclick="showPage('feedback')" id="nav-feedback">
+      <span class="nav-icon">🔁</span> Feedback
+    </div>
+    <div class="nav-item" onclick="showPage('analytics')" id="nav-analytics">
+      <span class="nav-icon">📈</span> Analytics
+    </div>
+    <div class="nav-item" onclick="showPage('settings')" id="nav-settings">
+      <span class="nav-icon">⚙️</span> Settings
+    </div>
+
+    <div class="sidebar-footer">
+      SoundSense v2.0<br/>Powered by TensorFlow
+    </div>
+  </nav>
+
+  <!-- ── Main Content ──────────────────────────────────────────────────────── -->
+  <main class="main">
+
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         SCREEN 1: HOME DASHBOARD
+    ════════════════════════════════════════════════════════════════════════ -->
+    <section class="page active" id="page-home">
+      <div class="page-title">🏠 Live Detection Dashboard</div>
+
+      <!-- Waveform + controls -->
+      <div class="card">
+        <canvas id="waveform-canvas"></canvas>
+        <div style="display:flex; gap:12px; align-items:center; margin-top:16px; flex-wrap:wrap;">
+          <div class="listening-row">
+            <div class="listening-dot" id="listen-dot"></div>
+            <span class="listening-label" id="listen-label">Not Listening</span>
+          </div>
+          <div style="display:flex; gap:10px; margin-left:auto; flex-wrap:wrap;">
+            <button class="btn btn-primary" id="btn-listen" onclick="toggleListen()">🎙 Start Listening</button>
+            <label class="btn btn-ghost" style="cursor:pointer;">
+              📁 Upload Audio
+              <input type="file" id="upload-input" accept=".wav,.mp3,.ogg,.flac" onchange="uploadFile(this)" style="display:none"/>
+            </label>
+          </div>
+        </div>
+        <div class="status-text" style="margin-top:10px;" id="status-text">💡 Press Start Listening or upload an audio file</div>
+      </div>
+
+      <!-- Detection result -->
+      <div class="detection-card idle" id="detection-card">
+        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+          <div class="card-title">🔊 CURRENT SOUND EVENT</div>
+          <div id="priority-badge"></div>
+        </div>
+        <div class="detection-label" id="detected-label">–</div>
+        <div class="conf-bar"><div class="conf-fill" id="conf-fill" style="width:0%"></div></div>
+        <div class="detection-meta">
+          <span class="status-text" id="conf-text">Confidence: –</span>
+          <span class="status-text" id="vibrate-indicator" style="display:none">📳 Vibrating</span>
+        </div>
+      </div>
+
+      <!-- Direction + last 3 history -->
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">📍 Sound Direction</div>
+          <div class="direction-display" id="direction-display">
+            <span id="dir-left">◀ LEFT</span>
+            <span id="dir-center" class="d-active">● CENTER</span>
+            <span id="dir-right">RIGHT ▶</span>
+          </div>
+          <div style="text-align:center; margin-top:12px; font-size:13px; color:var(--muted)" id="dir-label">–</div>
+        </div>
+        <div class="card">
+          <div class="card-title">⚡ Recent Alerts</div>
+          <div class="history-list" id="mini-history">
+            <div style="color:var(--muted); font-size:13px; text-align:center; padding:16px;">No detections yet</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         SCREEN 2: ALERT HISTORY
+    ════════════════════════════════════════════════════════════════════════ -->
+    <section class="page" id="page-history">
+      <div class="page-title">📋 Alert History</div>
+
+      <div class="card">
+        <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+          <div class="filter-bar" id="filter-bar">
+            <button class="filter-btn active" onclick="setFilter('all',this)">All</button>
+            <button class="filter-btn" onclick="setFilter('emergency',this)">🔴 Emergency</button>
+            <button class="filter-btn" onclick="setFilter('normal',this)">🟡 Normal</button>
+          </div>
+          <input class="search-input" id="history-search" placeholder="🔍 Search sounds…" style="max-width:220px; margin-left:auto;" oninput="renderHistory()"/>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="history-list" id="history-list">
+          <div style="color:var(--muted); font-size:14px; text-align:center; padding:32px;">
+            Loading history…
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         SCREEN 3: ADD CUSTOM SOUND
+    ════════════════════════════════════════════════════════════════════════ -->
+    <section class="page" id="page-custom">
+      <div class="page-title">🎤 Add Custom Sound</div>
+
+      <div class="grid-2">
+        <!-- Record panel -->
+        <div class="card" style="text-align:center;">
+          <div class="card-title" style="text-align:left;">🎙 Record New Sound</div>
+          <div style="margin: 20px 0 8px;">
+            <input class="text-input" id="custom-sound-name" placeholder="Sound name (e.g. My Doorbell)" style="margin-bottom:16px;"/>
+          </div>
+          <button class="record-btn" id="record-btn" onclick="toggleRecord()">🎙</button>
+          <div style="margin-top:12px; font-size:13px; color:var(--muted);" id="record-status-text">Tap to record</div>
+          <div class="record-progress" id="record-progress">
+            <div class="sample-dot" id="dot-1"></div>
+            <div class="sample-dot" id="dot-2"></div>
+            <div class="sample-dot" id="dot-3"></div>
+          </div>
+          <div style="margin-top:20px;">
+            <button class="btn btn-primary" id="btn-save-sound" onclick="saveCustomSound()" disabled>💾 Save Sound</button>
+          </div>
+          <div id="save-success" style="display:none; color:var(--success); margin-top:12px; font-weight:600;">
+            ✅ Trained Successfully!
+          </div>
+        </div>
+
+        <!-- Saved sounds panel -->
+        <div class="card">
+          <div class="card-title">💾 Saved Custom Sounds</div>
+          <div id="custom-sounds-list">
+            <div style="color:var(--muted); font-size:13px; text-align:center; padding:24px;">No custom sounds yet</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">💡 How It Works</div>
+        <div style="font-size:13.5px; color:var(--muted); line-height:1.7;">
+          <b style="color:var(--text);">Few-shot learning with Siamese Network</b> — Record 3 audio samples of your custom sound.
+          The AI learns its unique audio signature and matches it during live detection.
+          No full retraining required — the model personalizes instantly! 🚀
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         SCREEN 4: SETTINGS
+    ════════════════════════════════════════════════════════════════════════ -->
+    <section class="page" id="page-settings">
+      <div class="page-title">⚙️ Settings</div>
+
+      <div class="card">
+        <div class="card-title">Detection</div>
+
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Sensitivity</div>
+            <div class="setting-desc">Lower = more predictions. Higher = only confident ones.</div>
+            <input type="range" class="range-slider" id="slider-sensitivity" min="1" max="5" value="3" oninput="saveSetting('sensitivity',this.value); document.getElementById('sens-val').textContent=this.value"/>
+            <div style="font-size:12px; color:var(--accent); margin-top:4px;">Level: <span id="sens-val">3</span>/5</div>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">🔴 Emergency Alerts</div>
+            <div class="setting-desc">Enable visual flash and vibration for critical sounds</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="toggle-emergency" checked onchange="saveSetting('emergency',this.checked)"/>
+            <div class="toggle-track"></div>
+          </label>
+        </div>
+
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">📳 Vibration</div>
+            <div class="setting-desc">Vibrate device/browser on sound detection</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="toggle-vibration" checked onchange="saveSetting('vibration',this.checked)"/>
+            <div class="toggle-track"></div>
+          </label>
+        </div>
+
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">🤟 ISL Auto-Show</div>
+            <div class="setting-desc">Automatically show ISL guide when sound detected</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="toggle-isl" onchange="saveSetting('isl_auto',this.checked)"/>
+            <div class="toggle-track"></div>
+          </label>
+        </div>
+
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">🔋 Battery Saver</div>
+            <div class="setting-desc">Increase polling interval to 5s (saves power)</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="toggle-battery" onchange="saveSetting('battery_saver',this.checked)"/>
+            <div class="toggle-track"></div>
+          </label>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Priority Management</div>
+        <div style="font-size:13px; color:var(--muted); margin-bottom:14px;">
+          These sounds trigger 🔴 Emergency mode with vibration:
+        </div>
+        <div id="emergency-sounds-list" style="display:flex; flex-wrap:wrap; gap:8px;">
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         SCREEN 5: ISL FEEDBACK
+    ════════════════════════════════════════════════════════════════════════ -->
+    <section class="page" id="page-isl">
+      <div class="page-title">🤟 ISL Feedback Guide</div>
+
+      <!-- Active ISL alert -->
+      <div class="card" id="isl-active-card" style="display:none;">
+        <div class="card-title">⚡ Current Alert</div>
+        <div class="isl-container">
+          <div class="isl-icon" id="isl-icon">🔊</div>
+          <div class="isl-message" id="isl-message">Sound Detected</div>
+          <div class="isl-sub" id="isl-sub">Stay alert</div>
+          <div class="badge badge-emergency" id="isl-priority-badge">EMERGENCY</div>
+        </div>
+      </div>
+
+      <!-- ISL reference grid -->
+      <div class="card">
+        <div class="card-title">🧭 Sound Reference Guide</div>
+        <div class="isl-grid" id="isl-grid"></div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         SCREEN 6: FEEDBACK (ACTIVE LEARNING)
+    ════════════════════════════════════════════════════════════════════════ -->
+    <section class="page" id="page-feedback">
+      <div class="page-title">🔁 Feedback — Help AI Learn</div>
+
+      <div class="card" style="text-align:center;">
+        <div class="card-title" style="text-align:left;">Last Detection</div>
+        <div class="feedback-sound-display" id="feedback-sound-name">–</div>
+        <div style="color:var(--muted); font-size:13px; margin-bottom:20px;" id="feedback-conf-text">No recent detection</div>
+
+        <div class="feedback-btns">
+          <button class="btn btn-success" onclick="sendFeedback(true)">✅ That's Correct!</button>
+          <button class="btn btn-danger"  onclick="showWrongDropdown()">❌ That's Wrong</button>
+        </div>
+
+        <div id="wrong-section" style="display:none; margin-top:16px;">
+          <select class="feedback-select" id="feedback-correct-label">
+            <option value="">— Select the correct sound —</option>
+          </select>
+          <button class="btn btn-ghost" onclick="sendFeedback(false)" style="margin-top:10px; width:100%;">
+            Submit Correction
+          </button>
+        </div>
+
+        <div class="learning-msg" id="learning-msg" style="margin-top:16px;">
+          <span>🧠</span> <span>Thank you! Model is learning from your feedback…</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📊 Feedback Stats</div>
+        <div class="grid-3" id="feedback-stats">
+          <div class="stat-card">
+            <div class="stat-value" id="stat-total-fb">–</div>
+            <div class="stat-label">Total Feedback</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="stat-accuracy">–</div>
+            <div class="stat-label">Accuracy Estimate</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" style="color:var(--emergency);" id="stat-wrong">–</div>
+            <div class="stat-label">Corrections Given</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         SCREEN 7: ANALYTICS DASHBOARD
+    ════════════════════════════════════════════════════════════════════════ -->
+    <section class="page" id="page-analytics">
+      <div class="page-title">📈 Sound Analytics Dashboard</div>
+
+      <!-- Stat cards -->
+      <div class="grid-4">
+        <div class="stat-card">
+          <div class="stat-value" id="an-total">–</div>
+          <div class="stat-label">Total Detections</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" style="color:var(--emergency);" id="an-emergency">–</div>
+          <div class="stat-label">Emergency Alerts</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="an-conf">–</div>
+          <div class="stat-label">Avg Confidence</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" style="color:var(--success);" id="an-accuracy">–</div>
+          <div class="stat-label">Accuracy (Feedback)</div>
+        </div>
+      </div>
+
+      <!-- Charts -->
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">🏆 Top Detected Sounds</div>
+          <div class="chart-wrap"><canvas id="chart-top"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">📅 Daily Detections (7 days)</div>
+          <div class="chart-wrap"><canvas id="chart-daily"></canvas></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ISL Overlay (auto-popup) -->
+<div id="isl-overlay" style="
+  display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75);
+  z-index:1000; align-items:center; justify-content:center; backdrop-filter:blur(4px);">
+  <div style="background:var(--card); border-radius:24px; padding:40px; text-align:center; max-width:400px; width:90%; box-shadow:var(--shadow); border:1px solid var(--border);">
+    <div style="font-size:90px; margin-bottom:16px;" id="overlay-icon">🔊</div>
+    <div style="font-size:32px; font-weight:800; margin-bottom:8px;" id="overlay-message">Sound Detected</div>
+    <div style="font-size:15px; color:var(--muted); margin-bottom:24px;" id="overlay-sub">Stay alert</div>
+    <button class="btn btn-primary" onclick="document.getElementById('isl-overlay').style.display='none'">✓ Dismiss</button>
+  </div>
+</div>
+
+<script src="/static/script.js"></script>
+</body>
+</html>

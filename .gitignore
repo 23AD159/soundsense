@@ -1,0 +1,61 @@
+# Temporary audio files
+*.wav
+*.mp3
+*.flac
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Logs / error files
+error.txt
+quantize_err.txt
+quantize_error.txt
+verify_output.txt
+
+# Temp / generated files
+tmp_classes.txt
+
+# Model & heavy files
+models/
+*.h5
+*.tflite
+
+# Dataset folders
+data/
+dataset-ESC-50/
+
+# Android build files
+.gradle/
+build/
+
+# Temporary audio files
+*.wav
+*.mp3
+*.flac
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Logs / error files
+error.txt
+quantize_err.txt
+quantize_error.txt
+verify_output.txt
+
+# Temp / generated files
+tmp_classes.txt
+
+# Model & heavy files
+models/
+*.h5
+*.tflite
+
+# Dataset folders
+data/
+dataset-ESC-50/
+
+# Android build files
+.gradle/
+build/
