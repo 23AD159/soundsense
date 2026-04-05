@@ -5,14 +5,14 @@ import tensorflow as tf
 
 # Add src to path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from src.processing.audio_loader import load_audio, extract_log_mel_spectrogram
+from backend.core.processing.audio_loader import load_audio, extract_log_mel_spectrogram
 
 import shutil
 
 def test_inference():
-    MODEL_PATH = "models/transfer_model_robust.h5"
-    TEMP_MODEL_PATH = "models/transfer_model_tmp.h5"
-    CLASSES_PATH = "data/processed/classes.npy"
+    MODEL_PATH = "backend/models/transfer_model_robust.h5"
+    TEMP_MODEL_PATH = "backend/models/transfer_model_tmp.h5"
+    CLASSES_PATH = "backend/data/processed/classes.npy"
     
     if not os.path.exists(MODEL_PATH):
         print(f"❌ Model not found at {MODEL_PATH}")
@@ -32,7 +32,7 @@ def test_inference():
     
     # Pick a few sample sounds from data/raw to test
     test_samples = []
-    raw_dir = "data/raw"
+    raw_dir = "backend/data/raw"
     
     for root, dirs, files in os.walk(raw_dir):
         wav_files = [f for f in files if f.endswith('.wav') or f.endswith('.mp3')]

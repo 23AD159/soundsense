@@ -11,10 +11,10 @@ from collections import Counter
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from web_utils import preprocess_for_inference, get_direction, CONFIDENCE_THRESHOLD
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='../../frontend/web/templates', static_folder='../../frontend/web/static')
 
 # Config — prefer the curated Indian model if it exists, else fall back to robust
-BASE = os.path.join(os.path.dirname(__file__), '..', '..')
+BASE = os.path.join(os.path.dirname(__file__), '..')
 _indian_model  = os.path.join(BASE, 'models', 'transfer_model_indian.h5')
 _robust_model  = os.path.join(BASE, 'models', 'transfer_model_robust.h5')
 _indian_classes = os.path.join(BASE, 'data', 'processed', 'indian_classes.npy')

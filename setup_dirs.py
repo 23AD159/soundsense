@@ -8,7 +8,7 @@ classes = [
     'clapping', 'footsteps', 'tv_sounds', 'washing_machine'
 ]
 
-base_dir = "data/raw"
+base_dir = "backend/data/raw"
 
 for cls in classes:
     path = os.path.join(base_dir, cls)

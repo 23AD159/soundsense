@@ -7,13 +7,13 @@ from sklearn.preprocessing import LabelEncoder
 
 # Add src to path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
-from src.processing.audio_loader import load_audio, extract_log_mel_spectrogram
+from backend.core.processing.audio_loader import load_audio, extract_log_mel_spectrogram
 
 # Config
 DATASET_PATH = "dataset-ESC-50/ESC-50-master"
 META_FILE = os.path.join(DATASET_PATH, "meta", "esc50.csv")
 AUDIO_DIR = os.path.join(DATASET_PATH, "audio")
-PROCESSED_DIR = "data/processed"
+PROCESSED_DIR = "backend/data/processed"
 
 def prepare_dataset():
     if not os.path.exists(PROCESSED_DIR):
@@ -24,7 +24,7 @@ def prepare_dataset():
     categories = []
 
     # 1. Process Custom Indian Dataset (data/raw)
-    RAW_DIR = "data/raw"
+    RAW_DIR = "backend/data/raw"
     if os.path.exists(RAW_DIR):
         print(f"Scanning {RAW_DIR} for custom Indian sounds...")
         for root, dirs, files in os.walk(RAW_DIR):

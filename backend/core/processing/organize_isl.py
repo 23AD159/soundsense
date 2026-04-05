@@ -4,8 +4,8 @@ def organize_isl_assets():
     """
     Helps the user map sound labels to ISL video files for the Android app.
     """
-    labels_path = "models/labels.txt"
-    raw_res_dir = "src/android/app/src/main/res/raw"
+    labels_path = "backend/models/labels.txt"
+    raw_res_dir = "frontend/android/app/src/main/res/raw"
     
     if not os.path.exists(labels_path):
         print(f"❌ Error: {labels_path} not found. Run quantization first.")
