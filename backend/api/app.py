@@ -23,11 +23,11 @@ _robust_classes = os.path.join(BASE, 'data', 'processed', 'classes.npy')
 if os.path.exists(_indian_model):
     MODEL_PATH   = _indian_model
     CLASSES_PATH = _indian_classes
-    print("🇮🇳 Using curated Indian model.")
+    print("[INDIA] Using curated Indian model.")
 else:
     MODEL_PATH   = _robust_model
     CLASSES_PATH = _robust_classes
-    print("⚠️  Indian model not found — using robust model as fallback.")
+    print("[WARN] Indian model not found — using robust model as fallback.")
 
 SIAMESE_MODEL_PATH = os.path.join(BASE, 'models', 'siamese_model.h5')
 list_classes = []
@@ -37,7 +37,7 @@ siamese_model = None
 print(f"Loading model from {MODEL_PATH}...")
 try:
     model = tf.keras.models.load_model(MODEL_PATH)
-    print("✅ Classifier loaded.")
+    print("[OK] Classifier loaded.")
     
     if os.path.exists(SIAMESE_MODEL_PATH):
         def l1_dist(tensors):
@@ -47,17 +47,17 @@ try:
             custom_objects={'tf': tf},
             safe_mode=False
         )
-        print("✅ Siamese model loaded.")
+        print("[OK] Siamese model loaded.")
 except Exception as e:
-    print(f"❌ Error loading model: {e}")
+    print(f"[ERROR] Error loading model: {e}")
 
 # Load Classes
 print(f"Loading classes from {CLASSES_PATH}...")
 try:
     list_classes = np.load(CLASSES_PATH, allow_pickle=True)
-    print(f"✅ Classes loaded: {list_classes}")
+    print(f"[OK] Classes loaded: {list_classes}")
 except Exception as e:
-    print(f"❌ Error loading classes: {e}")
+    print(f"[ERROR] Error loading classes: {e}")
     list_classes = []
 
 @app.route('/')
@@ -145,7 +145,7 @@ def predict():
                         break
                 if custom_sound_detected: break
 
-        print(f"✅ Prediction: {predicted_label} ({confidence:.2%}) | Direction: {direction}")
+        print(f"[OK] Prediction: {predicted_label} ({confidence:.2%}) | Direction: {direction}")
 
         # Auto-save detection to history
         _save_detection(predicted_label, confidence, direction)
