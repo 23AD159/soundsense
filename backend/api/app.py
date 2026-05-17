@@ -19,13 +19,13 @@ app = Flask(__name__, template_folder='../../frontend/web/templates', static_fol
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 
 # Model files
-INDIAN_MODEL_PATH = os.path.join(PROJECT_ROOT, 'models', 'transfer_model_indian.h5')
-ROBUST_MODEL_PATH = os.path.join(PROJECT_ROOT, 'models', 'transfer_model_robust.h5')
-SIAMESE_MODEL_PATH = os.path.join(PROJECT_ROOT, 'models', 'siamese_model.h5')
+INDIAN_MODEL_PATH = os.path.join(PROJECT_ROOT, 'backend', 'models', 'transfer_model_indian.h5')
+ROBUST_MODEL_PATH = os.path.join(PROJECT_ROOT, 'backend', 'models', 'transfer_model_robust.h5')
+SIAMESE_MODEL_PATH = os.path.join(PROJECT_ROOT, 'backend', 'models', 'siamese_model.h5')
 
 # Class label files
-INDIAN_CLASSES_PATH = os.path.join(PROJECT_ROOT, 'data', 'processed', 'indian_classes.npy')
-ROBUST_CLASSES_PATH = os.path.join(PROJECT_ROOT, 'data', 'processed', 'classes.npy')
+INDIAN_CLASSES_PATH = os.path.join(PROJECT_ROOT, 'backend', 'data', 'processed', 'indian_classes.npy')
+ROBUST_CLASSES_PATH = os.path.join(PROJECT_ROOT, 'backend', 'data', 'processed', 'classes.npy')
 
 # Directory for custom‑sound samples (single definition)
 CUSTOM_SOUNDS_DIR = os.path.join(PROJECT_ROOT, 'data', 'custom_sounds')
@@ -64,7 +64,8 @@ if os.path.exists(SIAMESE_MODEL_PATH):
         siamese_model = tf.keras.models.load_model(
             SIAMESE_MODEL_PATH,
             custom_objects={'tf': tf},
-            compile=False
+            compile=False,
+            safe_mode=False
         )
         print('[OK] Siamese model loaded.')
     except Exception as e:
