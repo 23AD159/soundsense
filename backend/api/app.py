@@ -7,78 +7,86 @@ import json
 from datetime import datetime, timedelta
 from collections import Counter
 
-# Add current directory to path to import web_utils
+# Ensure local imports work
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from web_utils import preprocess_for_inference, get_direction, CONFIDENCE_THRESHOLD
 
 app = Flask(__name__, template_folder='../../frontend/web/templates', static_folder='../../frontend/web/static')
 
 # ---------------------------------------------------------------------------
-# Configuration – use Indian model if present, otherwise fall back to robust model
+# Project root and configuration paths
 # ---------------------------------------------------------------------------
-BASE = os.path.join(os.path.dirname(__file__), '..')
-INDIAN_MODEL_PATH = os.path.join(BASE, 'models', 'transfer_model_indian.h5')
-ROBUST_MODEL_PATH = os.path.join(BASE, 'models', 'transfer_model_robust.h5')
-INDIAN_CLASSES_PATH = os.path.join(BASE, 'data', 'processed', 'indian_classes.npy')
-ROBUST_CLASSES_PATH = os.path.join(BASE, 'data', 'processed', 'classes.npy')
-SIAMESE_MODEL_PATH = os.path.join(BASE, 'models', 'siamese_model.h5')
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 
-# Decide which classifier to load
+# Model files
+INDIAN_MODEL_PATH = os.path.join(PROJECT_ROOT, 'models', 'transfer_model_indian.h5')
+ROBUST_MODEL_PATH = os.path.join(PROJECT_ROOT, 'models', 'transfer_model_robust.h5')
+SIAMESE_MODEL_PATH = os.path.join(PROJECT_ROOT, 'models', 'siamese_model.h5')
+
+# Class label files
+INDIAN_CLASSES_PATH = os.path.join(PROJECT_ROOT, 'data', 'processed', 'indian_classes.npy')
+ROBUST_CLASSES_PATH = os.path.join(PROJECT_ROOT, 'data', 'processed', 'classes.npy')
+
+# Directory for custom‑sound samples (single definition)
+CUSTOM_SOUNDS_DIR = os.path.join(PROJECT_ROOT, 'data', 'custom_sounds')
+
+# ---------------------------------------------------------------------------
+# Choose which classifier to use
+# ---------------------------------------------------------------------------
 if os.path.exists(INDIAN_MODEL_PATH) and os.path.exists(INDIAN_CLASSES_PATH):
     MODEL_PATH = INDIAN_MODEL_PATH
     CLASSES_PATH = INDIAN_CLASSES_PATH
-    print("[INFO] Using curated Indian model.")
+    print('[INFO] Using curated Indian model.')
 else:
     MODEL_PATH = ROBUST_MODEL_PATH
     CLASSES_PATH = ROBUST_CLASSES_PATH
-    print("[WARN] Indian model not found – falling back to robust model.")
+    print('[WARN] Indian model not found – falling back to robust model.')
 
 # ---------------------------------------------------------------------------
-# Global objects – model, siamese_model, class list
+# Global objects – model, siamese model, class list
 # ---------------------------------------------------------------------------
 model = None
 siamese_model = None
 list_classes = []
 
-# Load the main classifier (robust or Indian)
-print(f"Loading model from {MODEL_PATH} ...")
+# Load the main classifier
+print(f'Loading model from {MODEL_PATH} ...')
 try:
     model = tf.keras.models.load_model(MODEL_PATH)
-    print("[OK] Classifier loaded.")
+    print('[OK] Classifier loaded.')
 except Exception as e:
-    print(f"[ERROR] Failed to load classifier: {e}")
+    print(f'[ERROR] Failed to load classifier: {e}')
     model = None
 
-# Load Siamese model if it exists – this model has two inputs and may contain custom ops
+# Load Siamese model if it exists
 if os.path.exists(SIAMESE_MODEL_PATH):
     try:
         siamese_model = tf.keras.models.load_model(
             SIAMESE_MODEL_PATH,
             custom_objects={'tf': tf},
-            compile=False  # we only need inference
+            compile=False
         )
-        print("[OK] Siamese model loaded.")
+        print('[OK] Siamese model loaded.')
     except Exception as e:
-        print(f"[ERROR] Failed to load Siamese model: {e}")
+        print(f'[ERROR] Failed to load Siamese model: {e}')
         siamese_model = None
 else:
-    print("[INFO] No Siamese model found – personalization disabled.")
+    print('[INFO] No Siamese model found – personalization disabled.')
 
-# Load class labels – graceful fallback to empty list
-print(f"Loading class labels from {CLASSES_PATH} ...")
+# Load class labels – fallback to empty list if missing
+print(f'Loading class labels from {CLASSES_PATH} ...')
 try:
     list_classes = np.load(CLASSES_PATH, allow_pickle=True).tolist()
-    print(f"[OK] Loaded {len(list_classes)} class labels.")
+    print(f'[OK] Loaded {len(list_classes)} class labels.')
 except Exception as e:
-    print(f"[ERROR] Could not load class labels: {e}")
+    print(f'[ERROR] Could not load class labels: {e}')
     list_classes = []
 
 # ---------------------------------------------------------------------------
-# Helper functions for persistence
+# Persistence helpers
 # ---------------------------------------------------------------------------
-DETECTIONS_FILE = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'detections.json')
-FEEDBACK_FILE = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'feedback.json')
-CUSTOM_SOUNDS_DIR = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'custom_sounds')
+DETECTIONS_FILE = os.path.join(PROJECT_ROOT, 'data', 'detections.json')
+FEEDBACK_FILE = os.path.join(PROJECT_ROOT, 'data', 'feedback.json')
 
 EMERGENCY_SOUNDS = {
     'fire_alarm', 'siren', 'car_horn', 'crying_baby', 'glass_breaking',
@@ -91,7 +99,7 @@ def _load_json(path):
             with open(path, 'r') as f:
                 return json.load(f)
     except Exception as e:
-        print(f"[WARN] Failed loading JSON from {path}: {e}")
+        print(f'[WARN] Failed loading JSON from {path}: {e}')
     return []
 
 def _save_json(path, data):
@@ -110,7 +118,6 @@ def _save_detection(label, confidence, direction):
         'priority': 'emergency' if label in EMERGENCY_SOUNDS else 'normal',
         'timestamp': datetime.now().isoformat()
     })
-    # Keep only the most recent 500 records
     _save_json(DETECTIONS_FILE, records[-500:])
 
 # ---------------------------------------------------------------------------
@@ -122,47 +129,31 @@ def index():
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    # Guard – model must be loaded
     if model is None:
         return jsonify({'error': 'Model not loaded on server'}), 500
-
     if 'audio' not in request.files:
         return jsonify({'error': 'No audio file provided'}), 400
-
     audio_file = request.files['audio']
     if audio_file.filename == '':
         return jsonify({'error': 'Empty filename'}), 400
-
-    # Store temporarily – keep extension to aid ffmpeg
     ext = audio_file.filename.rsplit('.', 1)[-1] if '.' in audio_file.filename else 'wav'
     temp_path = f'temp_audio.{ext}'
     audio_file.save(temp_path)
-
     try:
-        # Feature extraction
         input_data = preprocess_for_inference(temp_path)
         if input_data is None:
             raise RuntimeError('Preprocessing failed – returned None')
-
-        # Main classifier prediction
         pred = model.predict(input_data, verbose=0)
         pred_idx = int(np.argmax(pred[0]))
         confidence = float(np.max(pred[0]))
-        predicted_label = list_classes[pred_idx] if list_classes else f"class_{pred_idx}"
-
-        # Confidence threshold handling
+        predicted_label = list_classes[pred_idx] if list_classes else f'class_{pred_idx}'
         if confidence < CONFIDENCE_THRESHOLD:
-            predicted_label = "Uncertain"
-
-        # Direction estimation (GCC‑PHAT based)
+            predicted_label = 'Uncertain'
         direction = get_direction(temp_path)
-
-        # -------------------------------------------------------------------
-        # Personalization – Siamese comparison against user‑provided samples
-        # -------------------------------------------------------------------
+        # Personalisation via Siamese
         custom_sound_detected = None
         if siamese_model and os.path.isdir(CUSTOM_SOUNDS_DIR):
-            live_feat = input_data[0]  # shape (H, W, 1)
+            live_feat = input_data[0]
             for sound_name in os.listdir(CUSTOM_SOUNDS_DIR):
                 sound_path = os.path.join(CUSTOM_SOUNDS_DIR, sound_name)
                 if not os.path.isdir(sound_path):
@@ -174,22 +165,18 @@ def predict():
                     sample_feat = preprocess_for_inference(sample_path)
                     if sample_feat is None:
                         continue
-                    # Siamese expects two inputs – expand dims to batch size 1
                     score = siamese_model.predict([
                         np.expand_dims(live_feat, 0),
                         np.expand_dims(sample_feat[0], 0)
                     ], verbose=0)[0][0]
                     if score > 0.85:
                         custom_sound_detected = sound_name.replace('_', ' ')
-                        predicted_label = f"Personal: {custom_sound_detected}"
+                        predicted_label = f'Personal: {custom_sound_detected}'
                         confidence = float(score)
                         break
                 if custom_sound_detected:
                     break
-
-        # Record detection (skip if Uncertain/Unknown)
         _save_detection(predicted_label, confidence, direction)
-
         result = {
             'class': predicted_label,
             'confidence': confidence,
@@ -200,12 +187,11 @@ def predict():
         return jsonify(result)
     except Exception as exc:
         import traceback
-        err_msg = f"Prediction error: {exc}"
+        err_msg = f'Prediction error: {exc}'
         print(err_msg)
         print(traceback.format_exc())
         return jsonify({'error': err_msg}), 500
     finally:
-        # Clean up temporary file
         try:
             if os.path.exists(temp_path):
                 os.remove(temp_path)
@@ -218,21 +204,16 @@ def learn_sound():
     sound_name = request.form.get('name')
     if not sound_name:
         return jsonify({'error': 'Missing sound name'}), 400
-
-    # Ensure the custom sounds directory exists
     os.makedirs(CUSTOM_SOUNDS_DIR, exist_ok=True)
     sound_dir = os.path.join(CUSTOM_SOUNDS_DIR, sound_name.replace(' ', '_'))
     os.makedirs(sound_dir, exist_ok=True)
-
-    # Save up to three uploaded samples (keys: sample_1, sample_2, sample_3)
     for i in range(1, 4):
         key = f'sample_{i}'
         if key in request.files:
             file = request.files[key]
             dst = os.path.join(sound_dir, f'sample_{i}.webm')
             file.save(dst)
-            print(f"Saved custom sample: {dst}")
-
+            print(f'Saved custom sample: {dst}')
     return jsonify({'status': 'success', 'message': f'Learned {sound_name}'})
 
 # ---------------------------------------------------------------------------
@@ -241,7 +222,6 @@ def learn_sound():
 @app.route('/history')
 def history():
     records = _load_json(DETECTIONS_FILE)
-    # Return most recent 50 entries, newest first
     return jsonify(list(reversed(records[-50:])))
 
 @app.route('/feedback', methods=['POST'])
@@ -261,14 +241,12 @@ def feedback():
 def analytics():
     detections = _load_json(DETECTIONS_FILE)
     feedbacks = _load_json(FEEDBACK_FILE)
-
-    # Top‑10 most frequent sounds
+    # Top‑10 sounds
     counts = Counter(rec.get('class') for rec in detections)
     top10 = [{'class': k, 'count': v} for k, v in counts.most_common(10)]
-
-    # Daily counts for the last week
+    # Daily stats (last 7 days)
     today = datetime.now().date()
-    daily = { (today - timedelta(days=i)).isoformat(): 0 for i in range(7) }
+    daily = {(today - timedelta(days=i)).isoformat(): 0 for i in range(7)}
     for rec in detections:
         try:
             day = rec['timestamp'][:10]
@@ -276,15 +254,12 @@ def analytics():
                 daily[day] += 1
         except Exception:
             pass
-
-    # Accuracy based on user feedback
+    # Accuracy from feedback
     total_fb = len(feedbacks)
     correct = sum(1 for f in feedbacks if f.get('correct'))
     accuracy = round(correct / total_fb * 100, 1) if total_fb else None
-
     emergency_count = sum(1 for r in detections if r.get('priority') == 'emergency')
     avg_conf = round(sum(r['confidence'] for r in detections) / len(detections) * 100, 1) if detections else 0
-
     return jsonify({
         'total': len(detections),
         'emergency_count': emergency_count,
@@ -307,8 +282,8 @@ def custom_sounds():
     return jsonify(result)
 
 # ---------------------------------------------------------------------------
-# Application entry‑point
+# Application entry‑point – bind to Render's PORT if provided
 # ---------------------------------------------------------------------------
 if __name__ == '__main__':
-    # Disable Flask reloader & threading – Keras C++ crashes on Windows when threaded
-    app.run(debug=True, use_reloader=False, threaded=False, port=5000)
+    port = int(os.getenv('PORT', 5000))
+    app.run(debug=True, use_reloader=False, threaded=False, port=port)
