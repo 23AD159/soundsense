@@ -16,46 +16,26 @@ verify_output.txt
 # Temp / generated files
 tmp_classes.txt
 
-# Model & heavy files
-models/
-*.h5
-*.tflite
-
-# Dataset folders
-data/
-dataset-ESC-50/
-
 # Android build files
 .gradle/
 build/
 
-# Temporary audio files
-*.wav
-*.mp3
-*.flac
-
-# Python cache
-__pycache__/
-*.pyc
-
-# Logs / error files
-error.txt
-quantize_err.txt
-quantize_error.txt
-verify_output.txt
-
-# Temp / generated files
-tmp_classes.txt
-
-# Model & heavy files
-models/
+# -------------------------------------------------------------
+# Models and Data rules
+# -------------------------------------------------------------
+# Ignore all heavy model files by default (to avoid GitHub 100MB limit)
 *.h5
 *.tflite
 
-# Dataset folders
-data/
-dataset-ESC-50/
+# Explicitly ALLOW the required model files (<100MB) for Render deployment
+!backend/models/transfer_model_robust.h5
+!backend/models/transfer_model_indian.h5
 
-# Android build files
-.gradle/
-build/
+# Ignore dataset folders
+dataset-ESC-50/
+backend/data/raw/
+backend/data/external/
+
+# Ensure the processed class lists ARE uploaded
+!backend/data/processed/classes.npy
+!backend/data/processed/indian_classes.npy
