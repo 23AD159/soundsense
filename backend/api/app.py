@@ -9,7 +9,7 @@ from collections import Counter
 
 # Ensure local imports work
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from web_utils import preprocess_for_inference, get_direction, CONFIDENCE_THRESHOLD
+from web_utils import preprocess_for_inference, get_direction, CONFIDENCE_THRESHOLD, load_stereo_audio
 
 app = Flask(__name__, template_folder='../../frontend/web/templates', static_folder='../../frontend/web/static')
 
