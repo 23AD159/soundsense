@@ -4,7 +4,7 @@ gunicorn==21.2.0
 # TensorFlow version that provides wheels for Python 3.12
 tensorflow==2.16.2
 
-numpy==2.0.0
+numpy==1.26.4
 pandas==2.2.2
 scikit-learn==1.5.0
 
