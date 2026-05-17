@@ -57,11 +57,15 @@ def gcc_phat(sig, refsig, fs=16000, interp=16):
     tau = shift / float(interp * fs)
     return tau
 
-def get_direction(file_path):
+def get_direction(audio_data, from_file=True):
     """
-    Estimate sound direction from stereo file.
+    Estimate sound direction from stereo file or array.
     """
-    y_stereo = load_stereo_audio(file_path)
+    if from_file:
+        y_stereo = load_stereo_audio(audio_data)
+    else:
+        y_stereo = audio_data
+        
     if y_stereo is None or y_stereo.shape[0] < 2:
         return "CENTER"
         
@@ -174,14 +178,18 @@ def extract_features(y):
 
     return log_mel_spec
 
-def preprocess_for_inference(file_path):
+def preprocess_for_inference(audio_data, from_file=True):
 
     """
     Full pipeline: Load -> Extract -> Normalize -> Batch Dimension.
     Returns: (1, 64, 157, 1) ready for model.predict()
     """
     # For model prediction, we use mono
-    y = load_audio_from_file(file_path)
+    if from_file:
+        y = load_audio_from_file(audio_data)
+    else:
+        y = audio_data
+        
     if y is None: return None
     
     # Extract features

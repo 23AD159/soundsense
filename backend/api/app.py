@@ -83,6 +83,37 @@ except Exception as e:
     print(f'[ERROR] Could not load class labels: {e}')
     list_classes = []
 
+# Cache for custom sound features to prevent preprocessing on every request
+custom_sound_features_cache = {}
+
+def load_custom_sounds_into_cache():
+    if not siamese_model or not os.path.isdir(CUSTOM_SOUNDS_DIR):
+        return
+    for sound_name in os.listdir(CUSTOM_SOUNDS_DIR):
+        sound_path = os.path.join(CUSTOM_SOUNDS_DIR, sound_name)
+        if not os.path.isdir(sound_path):
+            continue
+        if sound_name not in custom_sound_features_cache:
+            custom_sound_features_cache[sound_name] = []
+        for sample_file in os.listdir(sound_path):
+            if not sample_file.lower().endswith('.webm') and not sample_file.lower().endswith('.wav'):
+                continue
+            sample_path = os.path.join(sound_path, sample_file)
+            
+            # check if we already have it
+            if any(s.get('path') == sample_path for s in custom_sound_features_cache[sound_name]):
+                continue
+                
+            sample_feat = preprocess_for_inference(sample_path)
+            if sample_feat is not None:
+                custom_sound_features_cache[sound_name].append({
+                    'path': sample_path,
+                    'feat': sample_feat[0]
+                })
+
+# Load cache on startup
+load_custom_sounds_into_cache()
+
 # ---------------------------------------------------------------------------
 # Persistence helpers
 # ---------------------------------------------------------------------------
@@ -140,8 +171,36 @@ def predict():
     ext = audio_file.filename.rsplit('.', 1)[-1] if '.' in audio_file.filename else 'wav'
     temp_path = f'temp_audio.{ext}'
     audio_file.save(temp_path)
+    
+    # If the file is webm (e.g. from browser), convert to wav first to prevent librosa/audioread hangs
+    if ext.lower() == 'webm':
+        try:
+            from pydub import AudioSegment
+            audio = AudioSegment.from_file(temp_path, format="webm")
+            wav_path = 'temp_audio.wav'
+            audio.export(wav_path, format="wav")
+            # Remove original webm and update temp_path
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+            temp_path = wav_path
+        except Exception as e:
+            print(f"[ERROR] WebM conversion failed in app.py: {e}")
+            # Fall back to trying to load it directly, though it might hang
+
     try:
-        input_data = preprocess_for_inference(temp_path)
+        # Load audio once for both inference and direction to save time and memory
+        y_stereo = load_stereo_audio(temp_path)
+        if y_stereo is None:
+            raise RuntimeError('Failed to load audio file')
+            
+        # Mono for inference
+        if y_stereo.shape[0] > 1:
+            y_mono = np.mean(y_stereo, axis=0)
+        else:
+            y_mono = y_stereo[0]
+            
+        input_data = preprocess_for_inference(y_mono, from_file=False)
+
         if input_data is None:
             raise RuntimeError('Preprocessing failed – returned None')
         pred = model.predict(input_data, verbose=0)
@@ -150,25 +209,22 @@ def predict():
         predicted_label = list_classes[pred_idx] if list_classes else f'class_{pred_idx}'
         if confidence < CONFIDENCE_THRESHOLD:
             predicted_label = 'Uncertain'
-        direction = get_direction(temp_path)
+        
+        # Pass the already loaded stereo audio for direction
+        direction = get_direction(y_stereo, from_file=False)
+        
         # Personalisation via Siamese
         custom_sound_detected = None
         if siamese_model and os.path.isdir(CUSTOM_SOUNDS_DIR):
             live_feat = input_data[0]
-            for sound_name in os.listdir(CUSTOM_SOUNDS_DIR):
-                sound_path = os.path.join(CUSTOM_SOUNDS_DIR, sound_name)
-                if not os.path.isdir(sound_path):
-                    continue
-                for sample_file in os.listdir(sound_path):
-                    if not sample_file.lower().endswith('.webm'):
-                        continue
-                    sample_path = os.path.join(sound_path, sample_file)
-                    sample_feat = preprocess_for_inference(sample_path)
-                    if sample_feat is None:
-                        continue
+            # Ensure cache is up to date (in case new sounds were learned)
+            load_custom_sounds_into_cache()
+            for sound_name, samples in custom_sound_features_cache.items():
+                for sample_data in samples:
+                    sample_feat = sample_data['feat']
                     score = siamese_model.predict([
                         np.expand_dims(live_feat, 0),
-                        np.expand_dims(sample_feat[0], 0)
+                        np.expand_dims(sample_feat, 0)
                     ], verbose=0)[0][0]
                     if score > 0.85:
                         custom_sound_detected = sound_name.replace('_', ' ')
